@@ -27,10 +27,12 @@ import (
 	cloudprovidersv1alpha1 "github.com/kkohtaka/namingway/pkg/apis/cloudproviders/v1alpha1"
 	"k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -81,8 +83,7 @@ type ReconcilePacket struct {
 func (r *ReconcilePacket) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	// Fetch the Packet instance
 	instance := &cloudprovidersv1alpha1.Packet{}
-	err := r.Get(context.TODO(), request.NamespacedName, instance)
-	if err != nil {
+	if err := r.Get(context.TODO(), request.NamespacedName, instance); err != nil {
 		if kerrors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
 			// For additional cleanup logic use finalizers.
@@ -95,13 +96,14 @@ func (r *ReconcilePacket) Reconcile(request reconcile.Request) (reconcile.Result
 
 	original := instance.DeepCopy()
 
+	// Get access token from Secret
+
 	var secret v1.Secret
 	objKey := types.NamespacedName{
 		Namespace: instance.Namespace,
 		Name:      instance.Spec.Secret.SecretName,
 	}
-	err = r.Get(context.TODO(), objKey, &secret)
-	if err != nil {
+	if err := r.Get(context.TODO(), objKey, &secret); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -112,6 +114,8 @@ func (r *ReconcilePacket) Reconcile(request reconcile.Request) (reconcile.Result
 	}
 	token := string(binToken)
 
+	// Get project name from Packet API
+
 	c := packngo.NewClientWithAuth("", token, nil)
 	project, _, err := c.Projects.Get(instance.Spec.ProjectID, nil)
 	if err != nil {
@@ -119,6 +123,55 @@ func (r *ReconcilePacket) Reconcile(request reconcile.Request) (reconcile.Result
 	}
 
 	instance.Status.ProjectName = project.Name
+
+	// Get devices from Packet API
+
+	devices, _, err := c.Devices.List(instance.Spec.ProjectID, nil)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "get devices in Packet project")
+	}
+	for i := range devices {
+		d := &devices[i]
+		pds := &cloudprovidersv1alpha1.PacketDeviceList{}
+		opts := client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector("Spec.ID", d.ID),
+		}
+		if err := r.List(context.TODO(), &opts, pds); err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "list PacketDevice")
+		}
+
+		if len(pds.Items) > 0 {
+			pd := &pds.Items[0]
+			old := pd.DeepCopy()
+			pd.Status.Hostname = d.Hostname
+			pd.Status.PublicIPAddresses = getPublicIPAddresses(d)
+
+			if err := controllerutil.SetControllerReference(instance, pd, r.scheme); err != nil {
+				return reconcile.Result{}, errors.Wrap(err, "set owner reference")
+			}
+
+			if !reflect.DeepEqual(old, pd) {
+				log.Printf("Updating PacketDevice %s/%s\n", pd.Namespace, pd.Name)
+				if err := r.Update(context.TODO(), pd); err != nil {
+					return reconcile.Result{}, errors.Wrap(err, "update PacketDevice")
+				}
+			}
+		} else {
+			pd := &cloudprovidersv1alpha1.PacketDevice{}
+			pd.Spec.ID = d.ID
+			pd.Status.Hostname = d.Hostname
+			pd.Status.PublicIPAddresses = getPublicIPAddresses(d)
+
+			if err := controllerutil.SetControllerReference(instance, pd, r.scheme); err != nil {
+				return reconcile.Result{}, errors.Wrap(err, "set owner reference")
+			}
+
+			log.Printf("Creating PacketDevice %s/%s\n", pd.Namespace, pd.Name)
+			if err := r.Create(context.TODO(), pd); err != nil {
+				return reconcile.Result{}, errors.Wrap(err, "create PacketDevice")
+			}
+		}
+	}
 
 	if !reflect.DeepEqual(original.Status, instance.Status) {
 		log.Printf("Updating Packet %s/%s\n", instance.Namespace, instance.Name)
@@ -128,4 +181,15 @@ func (r *ReconcilePacket) Reconcile(request reconcile.Request) (reconcile.Result
 		}
 	}
 	return reconcile.Result{}, nil
+}
+
+func getPublicIPAddresses(d *packngo.Device) []string {
+	var res []string
+	for i := range d.Network {
+		n := d.Network[i]
+		if n.Public && n.AddressFamily == 4 {
+			res = append(res, n.Address)
+		}
+	}
+	return res
 }

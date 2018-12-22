@@ -1,0 +1,10 @@
+apiVersion: cloudproviders.kohtaka.org/v1alpha1
+kind: Packet
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: packet-sample
+spec:
+  projectID: ''
+  secretRef:
+    secretName: ''

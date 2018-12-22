@@ -21,9 +21,14 @@ import (
 	"log"
 	"reflect"
 
+	"github.com/packethost/packngo"
+	"github.com/pkg/errors"
+
 	cloudprovidersv1alpha1 "github.com/kkohtaka/namingway/pkg/apis/cloudproviders/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -78,7 +83,7 @@ func (r *ReconcilePacket) Reconcile(request reconcile.Request) (reconcile.Result
 	instance := &cloudprovidersv1alpha1.Packet{}
 	err := r.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if kerrors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
 			// For additional cleanup logic use finalizers.
 			return reconcile.Result{}, nil
@@ -89,6 +94,31 @@ func (r *ReconcilePacket) Reconcile(request reconcile.Request) (reconcile.Result
 	log.Printf("Reconciling Packet resource %s/%s\n", instance.Namespace, instance.Name)
 
 	original := instance.DeepCopy()
+
+	var secret v1.Secret
+	objKey := types.NamespacedName{
+		Namespace: instance.Namespace,
+		Name:      instance.Spec.Secret.SecretName,
+	}
+	err = r.Get(context.TODO(), objKey, &secret)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	binToken, ok := secret.Data["token"]
+	if !ok {
+		return reconcile.Result{}, errors.Errorf(
+			"get token from Secret %s/%s", secret.Namespace, secret.Name)
+	}
+	token := string(binToken)
+
+	c := packngo.NewClientWithAuth("", token, nil)
+	project, _, err := c.Projects.Get(instance.Spec.ProjectID, nil)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "get Packet project")
+	}
+
+	instance.Status.ProjectName = project.Name
 
 	if !reflect.DeepEqual(original.Status, instance.Status) {
 		log.Printf("Updating Packet %s/%s\n", instance.Namespace, instance.Name)

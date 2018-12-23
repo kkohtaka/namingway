@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"time"
 
 	"github.com/packethost/packngo"
 	"github.com/pkg/errors"
@@ -200,7 +201,9 @@ func (r *ReconcilePacket) Reconcile(request reconcile.Request) (reconcile.Result
 			return reconcile.Result{}, err
 		}
 	}
-	return reconcile.Result{}, nil
+	return reconcile.Result{
+		RequeueAfter: time.Minute,
+	}, nil
 }
 
 func packetDeviceName(pName, hostname, id string) string {

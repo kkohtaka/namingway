@@ -18,6 +18,7 @@ package packet
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"reflect"
 
@@ -59,8 +60,25 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	mgr.GetCache().IndexField(
+		&cloudprovidersv1alpha1.PacketDevice{},
+		"spec.id",
+		client.IndexerFunc(func(o runtime.Object) []string {
+			var res []string
+			if pd, ok := o.(*cloudprovidersv1alpha1.PacketDevice); ok {
+				res = append(res, pd.Spec.ID)
+			}
+			return res
+		}),
+	)
+
 	// Watch for changes to Packet
 	err = c.Watch(&source.Kind{Type: &cloudprovidersv1alpha1.Packet{}}, &handler.EnqueueRequestForObject{})
+	if err != nil {
+		return err
+	}
+
+	err = c.Watch(&source.Kind{Type: &cloudprovidersv1alpha1.PacketDevice{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
@@ -134,7 +152,7 @@ func (r *ReconcilePacket) Reconcile(request reconcile.Request) (reconcile.Result
 		d := &devices[i]
 		pds := &cloudprovidersv1alpha1.PacketDeviceList{}
 		opts := client.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector("Spec.ID", d.ID),
+			FieldSelector: fields.OneTermEqualSelector("spec.id", d.ID),
 		}
 		if err := r.List(context.TODO(), &opts, pds); err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "list PacketDevice")
@@ -158,6 +176,8 @@ func (r *ReconcilePacket) Reconcile(request reconcile.Request) (reconcile.Result
 			}
 		} else {
 			pd := &cloudprovidersv1alpha1.PacketDevice{}
+			pd.Namespace = instance.Namespace
+			pd.Name = packetDeviceName(instance.Name, d.Hostname, d.ID)
 			pd.Spec.ID = d.ID
 			pd.Status.Hostname = d.Hostname
 			pd.Status.PublicIPAddresses = getPublicIPAddresses(d)
@@ -181,6 +201,10 @@ func (r *ReconcilePacket) Reconcile(request reconcile.Request) (reconcile.Result
 		}
 	}
 	return reconcile.Result{}, nil
+}
+
+func packetDeviceName(pName, hostname, id string) string {
+	return fmt.Sprintf("%s-%s-%s", pName, hostname, id[:6])
 }
 
 func getPublicIPAddresses(d *packngo.Device) []string {

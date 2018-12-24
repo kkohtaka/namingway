@@ -97,8 +97,7 @@ type ReconcilePacket struct {
 
 // Reconcile reads that state of the cluster for a Packet object and makes changes based on the state read
 // and what is in the Packet.Spec
-// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=cloudproviders.kohtaka.org,resources=packets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=cloudproviders.kohtaka.org,resources=packets;packetdevices,verbs=get;list;watch;create;update;patch;delete
 func (r *ReconcilePacket) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	// Fetch the Packet instance
 	instance := &cloudprovidersv1alpha1.Packet{}

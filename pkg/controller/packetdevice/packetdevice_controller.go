@@ -74,7 +74,6 @@ type ReconcilePacketDevice struct {
 
 // Reconcile reads that state of the cluster for a PacketDevice object and makes changes based on the state read
 // and what is in the PacketDevice.Spec
-// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=cloudproviders.kohtaka.org,resources=packetdevices,verbs=get;list;watch;create;update;patch;delete
 func (r *ReconcilePacketDevice) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	// Fetch the PacketDevice instance

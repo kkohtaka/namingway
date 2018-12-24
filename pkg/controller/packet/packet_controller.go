@@ -162,6 +162,7 @@ func (r *ReconcilePacket) Reconcile(request reconcile.Request) (reconcile.Result
 		if len(pds.Items) > 0 {
 			pd := &pds.Items[0]
 			old := pd.DeepCopy()
+			pd.Status.ProjectName = instance.Status.ProjectName
 			pd.Status.Hostname = d.Hostname
 			pd.Status.PublicIPAddresses = getPublicIPAddresses(d)
 
@@ -180,6 +181,7 @@ func (r *ReconcilePacket) Reconcile(request reconcile.Request) (reconcile.Result
 			pd.Namespace = instance.Namespace
 			pd.Name = packetDeviceName(instance.Name, d.Hostname, d.ID)
 			pd.Spec.ID = d.ID
+			pd.Status.ProjectName = instance.Status.ProjectName
 			pd.Status.Hostname = d.Hostname
 			pd.Status.PublicIPAddresses = getPublicIPAddresses(d)
 

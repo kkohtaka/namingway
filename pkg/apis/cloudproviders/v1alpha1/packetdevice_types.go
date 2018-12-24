@@ -27,6 +27,7 @@ type PacketDeviceSpec struct {
 
 // PacketDeviceStatus defines the observed state of PacketDevice
 type PacketDeviceStatus struct {
+	ProjectName       string   `json:"projectName,omitempty"`
 	Hostname          string   `json:"hostname,omitempty"`
 	PublicIPAddresses []string `json:"publicIPAddresses,omitempty"`
 }

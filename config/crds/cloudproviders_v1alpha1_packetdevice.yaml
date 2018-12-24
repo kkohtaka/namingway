@@ -37,6 +37,8 @@ spec:
           properties:
             hostname:
               type: string
+            projectName:
+              type: string
             publicIPAddresses:
               items:
                 type: string

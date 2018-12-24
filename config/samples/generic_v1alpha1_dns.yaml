@@ -1,0 +1,10 @@
+apiVersion: generic.kohtaka.org/v1alpha1
+kind: DNS
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: dns-sample
+spec:
+  cloudProvider: packet-sample
+  dns: clouddns-sample
+  domain: example.com

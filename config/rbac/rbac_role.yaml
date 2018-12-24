@@ -5,6 +5,19 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - generic.kohtaka.org
+  resources:
+  - dns
+  - dnsrecords
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
   - cloudproviders.kohtaka.org
   resources:
   - packets

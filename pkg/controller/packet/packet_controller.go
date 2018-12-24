@@ -79,7 +79,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	err = c.Watch(&source.Kind{Type: &cloudprovidersv1alpha1.PacketDevice{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(&source.Kind{Type: &cloudprovidersv1alpha1.PacketDevice{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &cloudprovidersv1alpha1.Packet{},
+	})
 	if err != nil {
 		return err
 	}

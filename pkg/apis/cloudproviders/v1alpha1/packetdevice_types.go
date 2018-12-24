@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	// genericv1alpha1 "github.com/kkohtaka/namingway/pkg/apis/generic/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -30,6 +31,13 @@ type PacketDeviceStatus struct {
 	ProjectName       string   `json:"projectName,omitempty"`
 	Hostname          string   `json:"hostname,omitempty"`
 	PublicIPAddresses []string `json:"publicIPAddresses,omitempty"`
+
+	DNSRecordRef *DNSRecordRef `json:"dnsRecordRef,omitempty"`
+}
+
+// DNSRecordRef defines a reference to of DNSRecord resource
+type DNSRecordRef struct {
+	Name string `json:"name,omitempty"`
 }
 
 // +genclient

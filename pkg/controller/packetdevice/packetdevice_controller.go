@@ -18,16 +18,25 @@ package packetdevice
 
 import (
 	"context"
+	"fmt"
+	"log"
+	"reflect"
 
-	cloudprovidersv1alpha1 "github.com/kkohtaka/namingway/pkg/apis/cloudproviders/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	"github.com/pkg/errors"
+
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	cloudprovidersv1alpha1 "github.com/kkohtaka/namingway/pkg/apis/cloudproviders/v1alpha1"
+	genericv1alpha1 "github.com/kkohtaka/namingway/pkg/apis/generic/v1alpha1"
 )
 
 /**
@@ -61,6 +70,14 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	err = c.Watch(&source.Kind{Type: &genericv1alpha1.DNSRecord{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &cloudprovidersv1alpha1.PacketDevice{},
+	})
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -80,7 +97,7 @@ func (r *ReconcilePacketDevice) Reconcile(request reconcile.Request) (reconcile.
 	instance := &cloudprovidersv1alpha1.PacketDevice{}
 	err := r.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if kerrors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
 			// For additional cleanup logic use finalizers.
 			return reconcile.Result{}, nil
@@ -89,5 +106,67 @@ func (r *ReconcilePacketDevice) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
+	original := instance.DeepCopy()
+
+	dr := &genericv1alpha1.DNSRecord{}
+	if instance.Status.DNSRecordRef == nil {
+		dr.Namespace = instance.Namespace
+		dr.Name = instance.Name
+
+		dr.Spec = *newDNSRecordSpec(instance)
+		if err := controllerutil.SetControllerReference(instance, dr, r.scheme); err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "set owner reference")
+		}
+
+		log.Printf("Creating DNSRecord %s/%s\n", dr.Namespace, dr.Name)
+		if err := r.Create(context.TODO(), dr); err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "create DNSRecord")
+		}
+	} else {
+		objKey := types.NamespacedName{
+			Namespace: instance.Namespace,
+			Name:      instance.Name,
+		}
+		if err := r.Get(context.TODO(), objKey, dr); err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "get DNSRecord")
+		}
+
+		original := dr.DeepCopy()
+
+		dr.Spec = *newDNSRecordSpec(instance)
+		if err := controllerutil.SetControllerReference(instance, dr, r.scheme); err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "set owner reference")
+		}
+
+		if !reflect.DeepEqual(original, dr) {
+			log.Printf("Updating DNSRecord %s/%s\n", dr.Namespace, dr.Name)
+			if err := r.Update(context.TODO(), dr); err != nil {
+				return reconcile.Result{}, errors.Wrap(err, "update DNSRecord")
+			}
+		}
+	}
+
+	instance.Status.DNSRecordRef = &cloudprovidersv1alpha1.DNSRecordRef{
+		Name: dr.Name,
+	}
+
+	if !reflect.DeepEqual(original.Status, instance.Status) {
+		log.Printf("Updating PacketDevice %s/%s\n", instance.Namespace, instance.Name)
+		err = r.Update(context.TODO(), instance)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
 	return reconcile.Result{}, nil
+}
+
+func newDNSRecordSpec(
+	pd *cloudprovidersv1alpha1.PacketDevice,
+) *genericv1alpha1.DNSRecordSpec {
+	return &genericv1alpha1.DNSRecordSpec{
+		Domain: fmt.Sprintf(
+			"%s.%s", pd.Status.Hostname, pd.Status.ProjectName),
+		A: pd.Status.PublicIPAddresses,
+	}
 }

@@ -35,6 +35,11 @@ spec:
           type: object
         status:
           properties:
+            dnsRecordRef:
+              properties:
+                name:
+                  type: string
+              type: object
             hostname:
               type: string
             projectName:

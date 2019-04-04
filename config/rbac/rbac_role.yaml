@@ -25,7 +25,7 @@ rules:
   - update
   - patch
 - apiGroups:
-  - generic.kkohtaka.org
+  - network.kkohtaka.org
   resources:
   - dnsrecords
   verbs:
@@ -37,7 +37,7 @@ rules:
   - patch
   - delete
 - apiGroups:
-  - generic.kkohtaka.org
+  - network.kkohtaka.org
   resources:
   - dnsrecords/status
   verbs:

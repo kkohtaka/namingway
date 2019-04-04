@@ -4,9 +4,9 @@ metadata:
   creationTimestamp: null
   labels:
     controller-tools.k8s.io: "1.0"
-  name: dnsrecords.generic.kkohtaka.org
+  name: dnsrecords.network.kkohtaka.org
 spec:
-  group: generic.kkohtaka.org
+  group: network.kkohtaka.org
   names:
     kind: DNSRecord
     plural: dnsrecords

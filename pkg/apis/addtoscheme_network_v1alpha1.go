@@ -14,5 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package generic contains generic API versions
-package generic
+package apis
+
+import (
+	"github.com/kkohtaka/namingway/pkg/apis/network/v1alpha1"
+)
+
+func init() {
+	// Register the types with the Scheme so the components can map objects to GroupVersionKinds and back
+	AddToSchemes = append(AddToSchemes, v1alpha1.SchemeBuilder.AddToScheme)
+}

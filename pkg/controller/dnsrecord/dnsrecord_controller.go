@@ -20,7 +20,7 @@ import (
 	"context"
 	"reflect"
 
-	genericv1alpha1 "github.com/kkohtaka/namingway/pkg/apis/generic/v1alpha1"
+	networkv1alpha1 "github.com/kkohtaka/namingway/pkg/apis/network/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -64,7 +64,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to DNSRecord
-	err = c.Watch(&source.Kind{Type: &genericv1alpha1.DNSRecord{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(&source.Kind{Type: &networkv1alpha1.DNSRecord{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
@@ -73,7 +73,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Uncomment watch a Deployment created by DNSRecord - change this for objects you create
 	err = c.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &genericv1alpha1.DNSRecord{},
+		OwnerType:    &networkv1alpha1.DNSRecord{},
 	})
 	if err != nil {
 		return err
@@ -97,11 +97,11 @@ type ReconcileDNSRecord struct {
 // Automatically generate RBAC rules to allow the Controller to read and write Deployments
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=deployments/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=generic.kkohtaka.org,resources=dnsrecords,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=generic.kkohtaka.org,resources=dnsrecords/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=network.kkohtaka.org,resources=dnsrecords,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=network.kkohtaka.org,resources=dnsrecords/status,verbs=get;update;patch
 func (r *ReconcileDNSRecord) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	// Fetch the DNSRecord instance
-	instance := &genericv1alpha1.DNSRecord{}
+	instance := &networkv1alpha1.DNSRecord{}
 	err := r.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {

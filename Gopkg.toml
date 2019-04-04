@@ -30,10 +30,6 @@ required = [
   name="sigs.k8s.io/controller-tools"
   version="v0.1.1"
 
-[[constraint]]
-	name="github.com/packethost/packngo"
-	revision="b3b45f1b4979af3ace1cd5450768ab387b40ae5b"
-
 # For dependency below: Refer to issue https://github.com/golang/dep/issues/1799
 [[override]]
 name = "gopkg.in/fsnotify.v1"

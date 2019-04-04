@@ -1,4 +1,4 @@
-apiVersion: generic.kohtaka.org/v1alpha1
+apiVersion: generic.kkohtaka.org/v1alpha1
 kind: DNS
 metadata:
   labels:

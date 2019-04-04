@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Kazumasa Kohtaka <kkohtaka@gmail.com>.
+Copyright 2019 Kazumasa Kohtaka <kkohtaka@gmail.com>.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,5 +19,5 @@ limitations under the License.
 // +k8s:deepcopy-gen=package,register
 // +k8s:conversion-gen=github.com/kkohtaka/namingway/pkg/apis/generic
 // +k8s:defaulter-gen=TypeMeta
-// +groupName=generic.kohtaka.org
+// +groupName=generic.kkohtaka.org
 package v1alpha1

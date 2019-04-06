@@ -5,6 +5,27 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - packetnet.kkohtaka.org
+  resources:
+  - devices
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+- apiGroups:
+  - network.kkohtaka.org
+  resources:
+  - dnsrecords
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
   - apps
   resources:
   - deployments

@@ -20,13 +20,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // DNSRecordSpec defines the desired state of DNSRecord
 type DNSRecordSpec struct {
-	Domain string   `json:"domain"`
-	A      []string `json:"a"`
+	SubDomain string   `json:"domain"`
+	A         []string `json:"a"`
 }
 
 // DNSRecordStatus defines the observed state of DNSRecord

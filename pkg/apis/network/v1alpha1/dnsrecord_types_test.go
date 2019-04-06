@@ -36,7 +36,7 @@ func TestStorageDNSRecord(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: DNSRecordSpec{
-			Domain: "www.example.com",
+			SubDomain: "www",
 			A: []string{
 				"192.0.2.1",
 				"192.0.2.2",

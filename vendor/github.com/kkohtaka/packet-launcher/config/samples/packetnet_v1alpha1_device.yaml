@@ -1,0 +1,9 @@
+apiVersion: packetnet.kkohtaka.org/v1alpha1
+kind: Device
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: device-sample
+spec:
+  # Add fields here
+  foo: bar

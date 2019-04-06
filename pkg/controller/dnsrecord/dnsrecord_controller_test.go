@@ -20,16 +20,23 @@ import (
 	"testing"
 	"time"
 
-	networkv1alpha1 "github.com/kkohtaka/namingway/pkg/apis/network/v1alpha1"
 	"github.com/onsi/gomega"
+
 	"golang.org/x/net/context"
+
 	appsv1 "k8s.io/api/apps/v1"
+	extapi "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	kscheme "k8s.io/client-go/kubernetes/scheme"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	networkv1alpha1 "github.com/kkohtaka/namingway/pkg/apis/network/v1alpha1"
 )
 
 var c client.Client
@@ -43,9 +50,16 @@ func TestReconcile(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	instance := &networkv1alpha1.DNSRecord{ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "default"}}
 
+	scheme := runtime.NewScheme()
+	kscheme.AddToScheme(scheme)
+	extapi.AddToScheme(scheme)
+	networkv1alpha1.AddToScheme(scheme)
+
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 	// channel when it is finished.
-	mgr, err := manager.New(cfg, manager.Options{})
+	mgr, err := manager.New(cfg, manager.Options{
+		Scheme: scheme,
+	})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	c = mgr.GetClient()
 

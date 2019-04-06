@@ -214,14 +214,6 @@
   version = "v1.1.6"
 
 [[projects]]
-  branch = "master"
-  digest = "1:380fe6fc2fadf5b836e78ed053254c2b2d25cdd805a8a790b0ed2975cf2ca331"
-  name = "github.com/kkohtaka/packet-launcher"
-  packages = ["pkg/apis/packetnet/v1alpha1"]
-  pruneopts = "T"
-  revision = "0e982f58b40018fc9339866fe5ec23351a433a47"
-
-[[projects]]
   digest = "1:3804a3a02964db8e6db3e5e7960ac1c1a9b12835642dd4f4ac4e56c749ec73eb"
   name = "github.com/markbates/inflect"
   packages = ["."]
@@ -302,6 +294,13 @@
   pruneopts = "T"
   revision = "90e289841c1ed79b7a598a7cd9959750cb5e89e2"
   version = "v1.5.0"
+
+[[projects]]
+  digest = "1:648c8f3f0c71779ac4aab80d5f4329d996fbe22641f1b03296d487f89c5aa96b"
+  name = "github.com/packethost/packngo"
+  packages = ["."]
+  pruneopts = "T"
+  revision = "c53c0868b5e0f9652ebcf7d679132f74695d3ffb"
 
 [[projects]]
   digest = "1:e5d0bd87abc2781d14e274807a470acd180f0499f8bf5bb18606e9ec22ad9de9"
@@ -558,6 +557,17 @@
   ]
   pruneopts = "T"
   revision = "8a44e74612bcf51f0d4407df3d3a8377cb99c2d8"
+
+[[projects]]
+  branch = "master"
+  digest = "1:363686890941480b8d1a0421b9e538cf55feaf9c7967bf4c809150b36138fe1c"
+  name = "golang.org/x/xerrors"
+  packages = [
+    ".",
+    "internal",
+  ]
+  pruneopts = "T"
+  revision = "d61658bd2e18010be0e21349cc92b1b706e35146"
 
 [[projects]]
   digest = "1:0c4496c1ac6b225c699524bf78df201f895305d7f6a0fee3d8e99cb244e0474e"
@@ -859,7 +869,6 @@
     "pkg/client/apiutil",
     "pkg/client/config",
     "pkg/controller",
-    "pkg/controller/controllerutil",
     "pkg/envtest",
     "pkg/envtest/printer",
     "pkg/event",
@@ -938,11 +947,11 @@
   analyzer-version = 1
   input-imports = [
     "github.com/emicklei/go-restful",
-    "github.com/kkohtaka/packet-launcher/pkg/apis/packetnet/v1alpha1",
     "github.com/onsi/ginkgo",
     "github.com/onsi/gomega",
+    "github.com/packethost/packngo",
     "golang.org/x/net/context",
-    "k8s.io/api/apps/v1",
+    "golang.org/x/xerrors",
     "k8s.io/api/core/v1",
     "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1",
     "k8s.io/apimachinery/pkg/api/errors",
@@ -955,10 +964,10 @@
     "k8s.io/client-go/rest",
     "k8s.io/code-generator/cmd/client-gen",
     "k8s.io/code-generator/cmd/deepcopy-gen",
+    "k8s.io/klog",
     "sigs.k8s.io/controller-runtime/pkg/client",
     "sigs.k8s.io/controller-runtime/pkg/client/config",
     "sigs.k8s.io/controller-runtime/pkg/controller",
-    "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil",
     "sigs.k8s.io/controller-runtime/pkg/envtest",
     "sigs.k8s.io/controller-runtime/pkg/handler",
     "sigs.k8s.io/controller-runtime/pkg/manager",

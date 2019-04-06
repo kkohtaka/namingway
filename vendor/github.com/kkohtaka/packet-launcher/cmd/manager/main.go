@@ -20,32 +20,15 @@ import (
 	"flag"
 	"os"
 
-	"github.com/kkohtaka/namingway/pkg/apis"
-	"github.com/kkohtaka/namingway/pkg/controller"
-	"github.com/kkohtaka/namingway/pkg/webhook"
-
-	extapi "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	"k8s.io/apimachinery/pkg/runtime"
-	kscheme "k8s.io/client-go/kubernetes/scheme"
+	"github.com/kkohtaka/packet-launcher/pkg/apis"
+	"github.com/kkohtaka/packet-launcher/pkg/controller"
+	"github.com/kkohtaka/packet-launcher/pkg/webhook"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
-
-	networkv1alpha1 "github.com/kkohtaka/namingway/pkg/apis/network/v1alpha1"
-	packetnetv1alpha1 "github.com/kkohtaka/packet-launcher/pkg/apis/packetnet/v1alpha1"
 )
-
-var scheme = runtime.NewScheme()
-
-func init() {
-	kscheme.AddToScheme(scheme)
-	extapi.AddToScheme(scheme)
-	networkv1alpha1.AddToScheme(scheme)
-	packetnetv1alpha1.AddToScheme(scheme)
-}
 
 func main() {
 	var metricsAddr string
@@ -64,10 +47,7 @@ func main() {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	log.Info("setting up manager")
-	mgr, err := manager.New(cfg, manager.Options{
-		MetricsBindAddress: metricsAddr,
-		Scheme:             scheme,
-	})
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: metricsAddr})
 	if err != nil {
 		log.Error(err, "unable to set up overall controller manager")
 		os.Exit(1)

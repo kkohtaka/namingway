@@ -1,0 +1,97 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: devices.packetnet.kkohtaka.org
+spec:
+  group: packetnet.kkohtaka.org
+  names:
+    kind: Device
+    plural: devices
+  scope: Namespaced
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            facility:
+              type: string
+            hostname:
+              type: string
+            os:
+              type: string
+            plan:
+              type: string
+            projectID:
+              type: string
+            userData:
+              type: string
+          required:
+          - projectID
+          - facility
+          - plan
+          - hostname
+          - os
+          type: object
+        status:
+          properties:
+            id:
+              type: string
+            ipAddresses:
+              items:
+                properties:
+                  address:
+                    type: string
+                  addressFamily:
+                    format: int64
+                    type: integer
+                  gateway:
+                    type: string
+                  id:
+                    type: string
+                  netmask:
+                    type: string
+                  network:
+                    type: string
+                  public:
+                    type: boolean
+                required:
+                - id
+                - address
+                - gateway
+                - network
+                - addressFamily
+                - netmask
+                - public
+                type: object
+              type: array
+            ready:
+              type: boolean
+            state:
+              type: string
+          required:
+          - ready
+          - id
+          - state
+          type: object
+  version: v1alpha1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

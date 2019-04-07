@@ -18,31 +18,53 @@ package dnsrecord
 
 import (
 	"context"
+	"fmt"
 	"reflect"
+	"sort"
 
-	networkv1alpha1 "github.com/kkohtaka/namingway/pkg/apis/network/v1alpha1"
-	appsv1 "k8s.io/api/apps/v1"
+	errors "golang.org/x/xerrors"
+
+	dns "google.golang.org/api/dns/v1"
+	option "google.golang.org/api/option"
+
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	"github.com/kkohtaka/namingway/pkg/apis"
+	networkv1alpha1 "github.com/kkohtaka/namingway/pkg/apis/network/v1alpha1"
+	finalizerutil "github.com/kkohtaka/namingway/pkg/util/finalizer"
 )
 
-var log = logf.Log.WithName("dnsrecord-controller")
+const (
+	controllerName = "dnsrecord-controller"
 
-/**
-* USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
-* business logic.  Delete these comments after modifying this file.*
- */
+	defaultNamespace  = metav1.NamespaceSystem
+	defaultConfigName = "namingway"
+	defaultSecretName = "namingway"
+
+	defaultConfigKeyGCPProject        = "gcp-project"
+	defaultConfigKeyGCPManagedZone    = "gcp-managed-zone"
+	defaultSecretKeyGCPCredentialJSON = "gcp-credential-json"
+
+	defaultTTL = 60
+)
+
+var (
+	log                      = logf.Log.WithName(controllerName)
+	_   reconcile.Reconciler = &ReconcileDNSRecord{}
+)
 
 // Add creates a new DNSRecord Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -58,7 +80,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New("dnsrecord-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New(controllerName, mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return err
 	}
@@ -68,21 +90,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if err != nil {
 		return err
 	}
-
-	// TODO(user): Modify this to be the types you create
-	// Uncomment watch a Deployment created by DNSRecord - change this for objects you create
-	err = c.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &networkv1alpha1.DNSRecord{},
-	})
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
-
-var _ reconcile.Reconciler = &ReconcileDNSRecord{}
 
 // ReconcileDNSRecord reconciles a DNSRecord object
 type ReconcileDNSRecord struct {
@@ -92,19 +101,13 @@ type ReconcileDNSRecord struct {
 
 // Reconcile reads that state of the cluster for a DNSRecord object and makes changes based on the state read
 // and what is in the DNSRecord.Spec
-// TODO(user): Modify this Reconcile function to implement your Controller logic.  The scaffolding writes
-// a Deployment as an example
-// Automatically generate RBAC rules to allow the Controller to read and write Deployments
-// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=apps,resources=deployments/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=network.kkohtaka.org,resources=dnsrecords,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=network.kkohtaka.org,resources=dnsrecords/status,verbs=get;update;patch
 func (r *ReconcileDNSRecord) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	// Fetch the DNSRecord instance
 	instance := &networkv1alpha1.DNSRecord{}
 	err := r.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if kerrors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
 			// For additional cleanup logic use finalizers.
 			return reconcile.Result{}, nil
@@ -113,55 +116,203 @@ func (r *ReconcileDNSRecord) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, err
 	}
 
-	// TODO(user): Change this to be the object type created by your controller
-	// Define the desired Deployment object
-	deploy := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance.Name + "-deployment",
-			Namespace: instance.Namespace,
-		},
-		Spec: appsv1.DeploymentSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"deployment": instance.Name + "-deployment"},
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"deployment": instance.Name + "-deployment"}},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name:  "nginx",
-							Image: "nginx",
-						},
-					},
-				},
-			},
-		},
-	}
-	if err := controllerutil.SetControllerReference(instance, deploy, r.scheme); err != nil {
-		return reconcile.Result{}, err
+	project, managedZone, err := getGCPConfig(r)
+	if err != nil {
+		return reconcile.Result{}, errors.Errorf("get GCP config: %w", err)
 	}
 
-	// TODO(user): Change this for the object type created by your controller
-	// Check if the Deployment already exists
-	found := &appsv1.Deployment{}
-	err = r.Get(context.TODO(), types.NamespacedName{Name: deploy.Name, Namespace: deploy.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		log.Info("Creating Deployment", "namespace", deploy.Namespace, "name", deploy.Name)
-		err = r.Create(context.TODO(), deploy)
-		return reconcile.Result{}, err
-	} else if err != nil {
-		return reconcile.Result{}, err
+	credential, err := getGCPCredential(r)
+	if err != nil {
+		return reconcile.Result{}, errors.Errorf("get GCP credential: %w", err)
 	}
 
-	// TODO(user): Change this for the object type created by your controller
-	// Update the found object and write the result back if there are any changes
-	if !reflect.DeepEqual(deploy.Spec, found.Spec) {
-		found.Spec = deploy.Spec
-		log.Info("Updating Deployment", "namespace", deploy.Namespace, "name", deploy.Name)
-		err = r.Update(context.TODO(), found)
-		if err != nil {
-			return reconcile.Result{}, err
+	if finalizerutil.IsDeleting(instance) {
+		if err := removeExternalDependency(instance, project, managedZone, credential); err != nil {
+			return reconcile.Result{}, errors.Errorf("remove external dependencies of %v: %w", request.NamespacedName, err)
+		}
+		if err := newUpdater(r, instance).removeFinalizer(apis.FinalizerName).update(context.TODO()); err != nil {
+			return reconcile.Result{}, errors.Errorf("remove finalizer of %v: %w", request.NamespacedName, err)
+		}
+		klog.Infof("DNSRecord %v was finalized by %v", request.NamespacedName, apis.ProductName)
+		return reconcile.Result{}, nil
+	}
+
+	if !finalizerutil.HasFinalizer(instance, apis.FinalizerName) {
+		if err := newUpdater(r, instance).setFinalizer(apis.FinalizerName).update(context.TODO()); err != nil {
+			return reconcile.Result{}, errors.Errorf("set finalizer: %w", err)
 		}
 	}
+
+	if err := prepareExternalDependency(instance, project, managedZone, credential); err != nil {
+		if e := newUpdater(r, instance).ready(false).update(context.TODO()); e != nil {
+			return reconcile.Result{}, errors.Errorf("update DNSRecord %v: %w", request.NamespacedName, e)
+		}
+		return reconcile.Result{}, errors.Errorf("prepare external dependencies of %v: %w", request.NamespacedName, err)
+	}
+
+	if err := newUpdater(r, instance).ready(true).update(context.TODO()); err != nil {
+		return reconcile.Result{}, errors.Errorf("update DNSRecord %v: %w", request.NamespacedName, err)
+	}
 	return reconcile.Result{}, nil
+}
+
+func getGCPConfig(c client.Client) (string, string, error) {
+	var config corev1.ConfigMap
+	objKey := types.NamespacedName{
+		Namespace: defaultNamespace,
+		Name:      defaultConfigName,
+	}
+	if err := c.Get(context.TODO(), objKey, &config); err != nil {
+		return "", "", errors.Errorf("get ConfigMap %v: %w", objKey, err)
+	}
+	project, ok := config.Data[defaultConfigKeyGCPProject]
+	if !ok {
+		return "", "", errors.Errorf("get GCP project name from config: %v", objKey)
+	}
+	managedZone, ok := config.Data[defaultConfigKeyGCPManagedZone]
+	if !ok {
+		return "", "", errors.Errorf("get GCP managed zone name from config: %v", objKey)
+	}
+	return project, managedZone, nil
+}
+
+func getGCPCredential(c client.Client) ([]byte, error) {
+	var secret corev1.Secret
+	objKey := types.NamespacedName{
+		Namespace: defaultNamespace,
+		Name:      defaultSecretName,
+	}
+	if err := c.Get(context.TODO(), objKey, &secret); err != nil {
+		return nil, errors.Errorf("get Secret %v: %w", objKey, err)
+	}
+	credential, ok := secret.Data[defaultSecretKeyGCPCredentialJSON]
+	if !ok {
+		return nil, errors.Errorf("get GCP credential JSON from secret: %v", objKey)
+	}
+	return credential, nil
+}
+
+func prepareExternalDependency(
+	dnsRecord *networkv1alpha1.DNSRecord,
+	project, managedZone string,
+	credential []byte,
+) error {
+	svc, err := dns.NewService(context.TODO(), option.WithCredentialsJSON(credential))
+	if err != nil {
+		return errors.Errorf("create Cloud DNS client: %w", err)
+	}
+
+	zone, err := svc.ManagedZones.Get(project, managedZone).Do()
+	if err != nil {
+		return errors.Errorf("get managed zone %v/%v: %w", project, managedZone, err)
+	}
+
+	domain := fmt.Sprintf("%v.%v", dnsRecord.Spec.SubDomain, zone.DnsName)
+	rrdatas := dnsRecord.Spec.A
+
+	change := &dns.Change{
+		Additions: []*dns.ResourceRecordSet{
+			&dns.ResourceRecordSet{
+				Name:    domain,
+				Type:    "A",
+				Ttl:     defaultTTL,
+				Rrdatas: rrdatas,
+			},
+		},
+	}
+
+	var deletions []*dns.ResourceRecordSet
+	err = svc.ResourceRecordSets.List(project, managedZone).Name(domain).Type("A").Pages(
+		context.TODO(),
+		func(resp *dns.ResourceRecordSetsListResponse) error {
+			for _, rrset := range resp.Rrsets {
+				deletions = append(deletions, rrset)
+				break
+			}
+			return nil
+		},
+	)
+	if err != nil {
+		return errors.Errorf("get current A record of %v: %w", domain, err)
+	}
+	if len(deletions) > 0 {
+		if shouldUpdateResourceRecordSet(change.Additions[0], deletions[0]) {
+			return nil
+		} else {
+			change.Deletions = deletions
+		}
+	}
+
+	_, err = svc.Changes.Create(project, managedZone, change).Do()
+	if err != nil {
+		return errors.Errorf("update A record of %v: %w", domain, err)
+	}
+	klog.Infof("Registered A record of %v: %v", domain, rrdatas)
+	return nil
+}
+
+func removeExternalDependency(
+	dnsRecord *networkv1alpha1.DNSRecord,
+	project, managedZone string,
+	credential []byte,
+) error {
+	svc, err := dns.NewService(context.TODO(), option.WithCredentialsJSON(credential))
+	if err != nil {
+		return errors.Errorf("create Cloud DNS client: %w", err)
+	}
+
+	zone, err := svc.ManagedZones.Get(project, managedZone).Do()
+	if err != nil {
+		return errors.Errorf("get managed zone %v/%v: %w", project, managedZone, err)
+	}
+
+	domain := fmt.Sprintf("%v.%v", dnsRecord.Spec.SubDomain, zone.DnsName)
+
+	var deletions []*dns.ResourceRecordSet
+	err = svc.ResourceRecordSets.List(project, managedZone).Name(domain).Type("A").Pages(
+		context.TODO(),
+		func(resp *dns.ResourceRecordSetsListResponse) error {
+			for _, rrset := range resp.Rrsets {
+				deletions = append(deletions, rrset)
+				break
+			}
+			return nil
+		},
+	)
+	if err != nil {
+		return errors.Errorf("get current A record of %v: %w", domain, err)
+	}
+	if len(deletions) == 0 {
+		klog.Infof("Could not find A record of %v", domain)
+		return nil
+	}
+
+	change := &dns.Change{
+		Deletions: deletions,
+	}
+	_, err = svc.Changes.Create(project, managedZone, change).Do()
+	if err != nil {
+		return errors.Errorf("update A record of %v: %w", domain, err)
+	}
+	klog.Infof("Removed A record of %v", domain)
+	return nil
+}
+
+func shouldUpdateResourceRecordSet(x, y *dns.ResourceRecordSet) bool {
+	if x.Name != y.Name {
+		return true
+	}
+	if x.Type != y.Type {
+		return true
+	}
+	if x.Ttl != y.Ttl {
+		return true
+	}
+	xData, yData := x.Rrdatas, y.Rrdatas
+	sort.Strings(xData)
+	sort.Strings(yData)
+	if !reflect.DeepEqual(xData, yData) {
+		return true
+	}
+	return false
 }

@@ -28,7 +28,7 @@ import (
 	option "google.golang.org/api/option"
 
 	corev1 "k8s.io/api/core/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -107,7 +107,7 @@ func (r *ReconcileDNSRecord) Reconcile(request reconcile.Request) (reconcile.Res
 	instance := &networkv1alpha1.DNSRecord{}
 	err := r.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
-		if kerrors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
 			// For additional cleanup logic use finalizers.
 			return reconcile.Result{}, nil

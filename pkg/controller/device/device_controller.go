@@ -22,7 +22,7 @@ import (
 
 	errors "golang.org/x/xerrors"
 
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -93,7 +93,7 @@ func (r *ReconcileDevice) Reconcile(request reconcile.Request) (reconcile.Result
 	// Fetch the Device instance
 	instance := &packetnetv1alpha1.Device{}
 	if err := r.Get(context.TODO(), request.NamespacedName, instance); err != nil {
-		if kerrors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
 			// For additional cleanup logic use finalizers.
 			return reconcile.Result{}, nil
@@ -132,7 +132,7 @@ func prepareExternalDependency(device *packetnetv1alpha1.Device, c client.Client
 		Namespace: device.Namespace,
 	}
 	if err := c.Get(context.TODO(), objKey, dnsrecord); err != nil {
-		if kerrors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			dnsrecord = newDNSRecord(device)
 			if err := controllerutil.SetControllerReference(device, dnsrecord, scheme); err != nil {
 				return errors.Errorf("set controller reference on DNSRecord %v/%v: %w",

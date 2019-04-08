@@ -1,0 +1,64 @@
+kind: pipeline
+name: prebuild
+platform:
+  os: linux
+  arch: amd64
+workspace:
+  base: /go
+  path: src/github.com/kkohtaka/namingway
+steps:
+- name: test
+  image: golang:1.12
+  commands:
+  - make test
+---
+kind: pipeline
+name: amd64
+platform:
+  os: linux
+  arch: amd64
+steps:
+- name: docker
+  image: plugins/docker
+  settings:
+    repo: quay.io/kkohtaka/namingway-amd64
+    tags: latest
+    registry: quay.io
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+trigger:
+  branch:
+  - master
+  event:
+  - push
+depends_on:
+- prebuild
+---
+kind: pipeline
+name: arm32
+platform:
+  os: linux
+  arch: arm
+steps:
+- name: docker
+  image: plugins/docker
+  settings:
+    repo: quay.io/kkohtaka/namingway-arm32
+    tags: latest
+    build_args:
+    - DEBIAN_BASE_SUFFIX=arm
+    - GO_TARBALL=go1.12.linux-armv6l.tar.gz
+    registry: quay.io
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+trigger:
+  branch:
+  - master
+  event:
+  - push
+depends_on:
+- prebuild
